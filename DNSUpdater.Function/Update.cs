@@ -24,7 +24,7 @@ namespace DNSUpdater.Function
         {
             this.service = serviceFactory.GetDnsServiceAsync();
             this.logger = logger;
-            this.tokenList = GetAuthorizedUsers(config.GetSection("Authorization"));
+            this.tokenList = GetAuthorizedUsers(config);
             if (this.tokenList.Count == 0)
             {
                 var raw = config.ToString();
@@ -91,15 +91,7 @@ namespace DNSUpdater.Function
             if (!tokenList.Contains(token))
             {
                 this.logger.LogWarning($"Unauthorized request. Provided token");
-                var sb = new StringBuilder();
-                sb.Append('[');
-                foreach (var t in tokenList) {
-                    sb.Append(t);
-                    sb.Append(',');
-                }
-                sb.Append(']');
-                var tokenListRaw = sb.ToString();
-                this.logger.LogDebug($"Valid tokens: {tokenListRaw}\ttoken: {token}");
+                LogTokensToDebug(token);
                 return new ObjectResult(UpdateStatus.badauth.ToString()) { StatusCode = 401 };
             }
 
@@ -126,7 +118,13 @@ namespace DNSUpdater.Function
                     return new OkObjectResult(UpdateStatus.good.ToString());
                 } else if (resulterv4 == UpdateStatus.nochg && resulterv6 == UpdateStatus.nochg)
                 {
-                    return new ConflictObjectResult(resulterv4.ToString());
+                    return new OkObjectResult(UpdateStatus.nochg.ToString());
+                } else if (resulterv4 == UpdateStatus.badauth || resulterv6 == UpdateStatus.badauth)
+                {
+                    return new ForbidResult(UpdateStatus.badauth.ToString());
+                } else if (resulterv4 == UpdateStatus.invalidinput || resulterv6 == UpdateStatus.invalidinput)
+                {
+                    return new UnprocessableEntityObjectResult(UpdateStatus.invalidinput.ToString());
                 } else {
                     return new ConflictObjectResult(resulterv4.ToString());
                 }
@@ -138,24 +136,28 @@ namespace DNSUpdater.Function
             }
         }
 
-        private List<string> GetAuthorizedUsers(IConfigurationSection authSection)
+        private void LogTokensToDebug(string token)
+        {
+            var sb = new StringBuilder();
+            sb.Append('[');
+            foreach (var t in tokenList)
+            {
+                sb.Append(t);
+                sb.Append(',');
+            }
+            sb.Append(']');
+            var tokenListRaw = sb.ToString();
+            this.logger.LogDebug($"Valid tokens: {tokenListRaw}\ttoken: {token}");
+        }
+
+        private List<string> GetAuthorizedUsers(IConfiguration authSection)
         {
             var children = authSection.GetChildren();
-
-            int elementCount = 0;
-            foreach (var _ in children)
-            {
-                elementCount ++;
-            }
-
-            var tokens = new List<string>(elementCount);
-            foreach (var entry in children)
-            {
-                var user = entry["user"];
-                var secret = entry["secret"];
-                tokens.Add(Base64Encode($"{user}:{secret}"));
-            }
-
+            var tokens = new List<string>();
+            var clientUsername = authSection["clientUsername"];
+            var clientPassword = authSection["clientPassword"];
+            var userPassword = $"{clientUsername}:{clientPassword}";
+            tokens.Add(Base64Encode(userPassword));
             return tokens;
         }
 

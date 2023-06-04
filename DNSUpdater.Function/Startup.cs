@@ -1,11 +1,10 @@
 ﻿using System;
-using DNSUpdater.Function;
 using DNSUpdater.Library.Services;
 using Microsoft.Azure.Functions.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-[assembly: FunctionsStartup(typeof(Startup))]
+[assembly: FunctionsStartup(typeof(DNSUpdater.Function.Startup))]
 namespace DNSUpdater.Function
 {
     public class Startup : FunctionsStartup

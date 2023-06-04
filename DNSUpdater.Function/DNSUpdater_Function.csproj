@@ -4,11 +4,18 @@
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.1.1" />
+    <PackageReference Include="Microsoft.Azure.Functions.Extensions" Version="1.1.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.2.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="7.0.0" />
     <!--
-    <PackageReference Include="Microsoft.Azure.Functions.Extensions" Version="1.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
+      "
+      Before you can use dependency injection, you must install the following NuGet packages:
+        Microsoft.Azure.Functions.Extensions
+        Microsoft.NET.Sdk.Functions package version 1.0.28 or later
+        Microsoft.Extensions.DependencyInjection (currently, only version 2.x or later supported)
+      "
+      Source: https://learn.microsoft.com/en-us/azure/azure-functions/functions-dotnet-dependency-injection
     -->
   </ItemGroup>
   <ItemGroup>

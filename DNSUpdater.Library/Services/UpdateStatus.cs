@@ -2,11 +2,12 @@ namespace DNSUpdater.Library.Services
 {
     public enum UpdateStatus
     {
-        good,
         nochg,
+        good,
         nohost,
         notfqdn,
         badauth,
-        othererr
+        othererr,
+        invalidinput
     }
 }

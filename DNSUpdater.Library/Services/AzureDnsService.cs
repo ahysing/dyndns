@@ -1,4 +1,6 @@
-﻿using Azure;
+﻿using System.Net;
+using System.Text;
+using Azure;
 using Azure.ResourceManager.Dns;
 using Azure.ResourceManager.Dns.Models;
 using Azure.ResourceManager.Resources;
@@ -53,6 +55,17 @@ namespace DNSUpdater.Library.Services
 
         public async Task<UpdateStatus> UpdateARecord(string fqdn, string ip, int ttl)
         {
+            IPAddress parsedIp;
+            Domain domain;
+            try {
+                parsedIp = System.Net.IPAddress.Parse(ip);
+                domain = DisectFqdn(fqdn);
+            } catch (Exception e)
+            {
+                this.logger.LogWarning(e, "Invalid input");
+                return UpdateStatus.invalidinput;
+            }
+
             if (string.IsNullOrEmpty(this.rgName))
             {
                 SetupRgName();
@@ -63,24 +76,25 @@ namespace DNSUpdater.Library.Services
                 SetupZone();
             }
 
+            var zoneName = this.zoneName ?? domain.domain;
+            var response =  this.client.GetResourceGroupAsync(this.rgName);
+
             try
             {
-                var response =  this.client.GetResourceGroupAsync(this.rgName);
-                var parsedIp = System.Net.IPAddress.Parse(ip);
-                var domain = DisectFqdn(fqdn);
-                var zoneName = this.zoneName ?? domain.domain;
                 var records = new List<DnsARecordResource>();
                 var zones = (await response).Value.GetDnsZones();
                 var zone = await zones.GetAsync(zoneName);
                 foreach (var arecord in zone.Value.GetDnsARecords())
                 {
-                    if (arecord.Data.Name == fqdn
-                     && arecord.Data.DnsARecords.Contains(new Azure.ResourceManager.Dns.Models.DnsARecordInfo() { IPv4Address = parsedIp }))
+                    if (arecord.Data.Name == fqdn)
                     {
-                        this.logger.LogInformation($"IP update not required. Domain: {domain.fqdn}, ip: {ip}");
-                        return UpdateStatus.nochg;
-                    } else if (arecord.Data.Name == fqdn)
-                    {
+                        LogIpv4Update(fqdn, ip, arecord.Data.DnsARecords);
+                        if (arecord.Data.DnsARecords.Any(ar => ar.IPv4Address.Equals(parsedIp)))
+                        {
+                            this.logger.LogInformation($"IP update not required. Domain: {domain.fqdn}, ip: {ip}");
+                            return UpdateStatus.nochg;
+                        }
+
                         this.logger.LogInformation($"IP update. Domain: {domain.fqdn}, ip: {ip}");
 
                         var arecordData = new DnsARecordData() { TtlInSeconds = ttl };
@@ -106,8 +120,58 @@ namespace DNSUpdater.Library.Services
             return UpdateStatus.othererr;
         }
 
+        private void LogIpv4Update(string fqdn, string ip, IList<DnsARecordInfo> dnsARecords)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append('[');
+            var first = dnsARecords.FirstOrDefault();
+            if (first != null)
+            {
+                sb.AppendFormat("\"{0}\"", first.IPv4Address.ToString());
+            }
+
+            foreach (var rest in dnsARecords.Skip(1))
+            {
+                sb.AppendFormat(", \"{0}\"", rest.IPv4Address.ToString());
+            }
+
+            sb.Append(']');
+            this.logger.LogInformation("Updating qfdn: \"{0}\" to ip: \"{1}\" from ips: {2}", fqdn, ip, sb.ToString());
+        }
+
+        private void LogIpv6Update(string fqdn, string ip, IList<DnsAaaaRecordInfo> dnsAaaaRecords)
+        {
+                        StringBuilder sb = new StringBuilder();
+            sb.Append('[');
+            var first = dnsAaaaRecords.FirstOrDefault();
+            if (first != null)
+            {
+                sb.AppendFormat("\"{0}\"", first.IPv6Address.ToString());
+            }
+
+            foreach (var rest in dnsAaaaRecords.Skip(1))
+            {
+                sb.AppendFormat(", \"{0}\"", rest.IPv6Address.ToString());
+            }
+
+            sb.Append(']');
+            this.logger.LogInformation("Updating qfdn: \"{0}\" to ip: \"{1}\" from ips: {2}", fqdn, ip, sb.ToString());
+        }
+
+
         public async Task<UpdateStatus> UpdateAAAARecord(string fqdn, string ip, int ttl)
         {
+            IPAddress parsedIp;
+            Domain domain;
+            try {
+                parsedIp = System.Net.IPAddress.Parse(ip);
+                domain = DisectFqdn(fqdn);
+            } catch (Exception e)
+            {
+                this.logger.LogWarning(e, "Invalid input");
+                return UpdateStatus.invalidinput;
+            } 
+
             if (string.IsNullOrEmpty(this.rgName))
             {
                 SetupRgName();
@@ -121,21 +185,21 @@ namespace DNSUpdater.Library.Services
             try
             {
                 var response =  this.client.GetResourceGroupAsync(this.rgName);
-                var parsedIp = System.Net.IPAddress.Parse(ip);
-                var domain = DisectFqdn(fqdn);
                 var zoneName = this.zoneName ?? domain.domain;
                 var records = new List<DnsARecordResource>();
                 var zones = (await response).Value.GetDnsZones();
                 var zone = await zones.GetAsync(zoneName);
                 foreach (var aaaarecord in zone.Value.GetDnsAaaaRecords())
                 {
-                    if (aaaarecord.Data.Name == fqdn
-                     && aaaarecord.Data.DnsAaaaRecords.Contains(new Azure.ResourceManager.Dns.Models.DnsAaaaRecordInfo() { IPv6Address = parsedIp }))
+                    if (aaaarecord.Data.Name == fqdn)
                     {
-                        this.logger.LogInformation($"IP update not required. Domain: {domain.fqdn}, ipv6: {ip}");
-                        return UpdateStatus.nochg;
-                    } else if (aaaarecord.Data.Name == fqdn)
-                    {
+                        LogIpv6Update(fqdn, ip, aaaarecord.Data.DnsAaaaRecords);
+                        if (aaaarecord.Data.DnsAaaaRecords.Any(ar => ar.IPv6Address.Equals(parsedIp)))
+                        {
+                            this.logger.LogInformation($"IP update not required. Domain: {domain.fqdn}, ipv6: {ip}");
+                            return UpdateStatus.nochg;
+                        }
+
                         this.logger.LogInformation($"IP update. Domain: {domain.fqdn}, ip: {ip}");
 
                         var aaaarecordData = new DnsAaaaRecordData() { TtlInSeconds = ttl };
