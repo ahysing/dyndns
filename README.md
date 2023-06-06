@@ -11,7 +11,7 @@
 ### Setup
 
 1. Set up you DNS Zones in Azure
-2. Set up your Azure Function App (v4/.NET7, consumption plan, Application Insights enabled)
+2. Set up your Azure Function App (v4/.NET6, consumption plan, Application Insights enabled)
 
 ![image](https://user-images.githubusercontent.com/842121/170865030-fdb026b2-fb98-4d1f-af53-73e8c2f1657d.png)
 
@@ -19,22 +19,13 @@
 
 ### Configuration
 
-#### configure a Service Principal
+#### Configure a Managed Identity
 
-_detailed walk-through:_ <https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal>
+Managed identity is turned on for the azure function provided in this code. This means that the azure function will function as it's own identity with it's own accesses to azure resources.
 
-##### quick guide
+To check that you have Managed Identity turned on visit the azure function and look for Identity in the blade to the left on the azure portal.
 
-1. Register a new application in your AAD tenant and take note of the application id (a.k.a clientId)
-
-    1. Give it a meaningful name
-    2. Select Single tenant
-    3. Do not provide a Redirect URI
-
-2. Create a client secret and copy the value for later use (a.k.a secret)
-![image](https://user-images.githubusercontent.com/842121/170866392-86ad8e7a-e425-42b8-b735-f7826f9502a2.png)
-
-#### assign DNS Zone contributor permission to the Service Principal
+Now we just need to assign the managed access to the azure DNS zone we want to configure.
 
 _detailed walk-through:_ (<https://docs.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal?tabs=current>)
 
@@ -43,10 +34,10 @@ _detailed walk-through:_ (<https://docs.microsoft.com/en-us/azure/role-based-acc
 1. Select "Access control (IAM)" in your DNS resource (or resource group if you have multiple DNS Zones that you want to modify)
 2. Click on "Add role assignment"
 3. Search for "DNS Zone Contributor", select it and click "Next"
-4. Click "Select Members" and search for your Service Principal (either by name or object id) and select it
+4. Click "Select Members" and search for your Managed Identtity. **The name of the managed identity is identical to the name of the azure function**
 5. Click "Next" and then "Review + assign"
 
-You can double check the success of your operation by providing your Service Principal name to the "Check access" form
+You can double check the success of your operation by providing your Azure Function name to the "Check access" form
 
 ![image](https://user-images.githubusercontent.com/842121/170866976-4086bbe0-ec17-4c70-a326-413fe17baf3a.png)
 
@@ -69,6 +60,7 @@ Set up local.settings.yaml with the following keys
         "resourceGroupName": "<rg>",
     }
 }
+```
 
 #### production
 
